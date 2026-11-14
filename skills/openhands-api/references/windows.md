@@ -23,7 +23,9 @@ curl.exe -X POST "$baseUrl/api/v1/app-conversations" `
   -H "Authorization: Bearer $apiKey" `
   -H "Content-Type: application/json" `
   -d '{
+    "generate_title_on_submit": true,
     "initial_message": {
+      "role": "user",
       "content": [{"type": "text", "text": "Investigate flaky tests in tests/test_api.py."}]
     },
     "selected_repository": "owner/repo"

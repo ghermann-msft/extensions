@@ -11,6 +11,8 @@ It also covers direct local Agent Canvas backend conversations when authoritativ
 - Minimal TypeScript client: [`scripts/openhands_api.ts`](./scripts/openhands_api.ts)
 - References: [`references/README.md`](./references/README.md)
 
+The Python helper uses only the standard library; no package installation is required.
+
 ## Quick start
 
 ```bash
@@ -27,7 +29,9 @@ Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conver
 
 Keep delegated prompts self-contained: include the repository, branch, relevant files, constraints, and expected output. Prefer five or fewer concurrently running delegated conversations.
 
-For an explicit subconversation request, pass the current app conversation UUID as `parent_conversation_id`. The Python helper can discover it from the hosted sandbox's internal agent-server catalog with `OpenHandsAPI.current_agent_server_conversation_id()` when that catalog contains exactly one conversation. Ordinary calls that omit the field continue to create top-level conversations.
+For an explicit subconversation request, pass the current app conversation UUID as `parent_conversation_id`. The Python helper can discover it from the hosted sandbox's internal agent-server catalog with `OpenHandsAPI.current_agent_server_conversation_id()` when that catalog contains exactly one conversation. Supply one stable `operation_id` to `app_subconversation_start()` and reuse it during recovery; the helper retries stale pre-send claims and definitive failures but will not issue a second create after delivery becomes uncertain. Omitting `operation_id` generates a unique id for that invocation, so identical intentional calls remain independent but cannot be recovered by a caller-supplied id after a crash.
+
+`app_conversation_start_guarded()` provides the same operation ledger for top-level creates. The Python CLI applies `--operation-id` to both top-level and child creates. Python state updates are atomic and persistent; TypeScript protection is process-local.
 
 ## Start-task vs app conversation id
 
@@ -41,6 +45,8 @@ If `app_conversation_id` is missing from the initial response, fetch it via:
 - `GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>`
 
 (If you accidentally use a start-task id with `/download`, you’ll get `404 Not Found`.)
+
+The initial message shape is exactly `{"role":"user","content":[...]}`. Do not add the local agent-server `run` field to an app-conversation request.
 
 ## Source of truth
 

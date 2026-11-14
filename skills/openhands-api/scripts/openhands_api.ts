@@ -22,7 +22,17 @@ export type OpenHandsOptions = {
 };
 
 const AGENT_EVENTS_SEARCH_MAX_LIMIT = 100;
+const CONVERSATION_OPERATIONS = new Map<
+  string,
+  {
+    status: "claimed" | "uncertain" | "failed" | "created";
+    fingerprint: string;
+    startTask?: Record<string, unknown>;
+  }
+>();
 
+export class OpenHandsAPIRequestRejectedError extends Error {}
+export class OpenHandsAPIRequestNotSentError extends Error {}
 
 export class OpenHandsAPI {
   private readonly apiKey: string;
@@ -44,7 +54,16 @@ export class OpenHandsAPI {
     headers: Record<string, string>,
     parseAs: "json" | "blob" = "json",
   ): Promise<T> {
-    const res = await fetch(url, {
+    let requestUrl: URL;
+    try {
+      requestUrl = new URL(url);
+    } catch (error) {
+      throw new OpenHandsAPIRequestNotSentError(`OpenHands API request was not sent: ${error}`);
+    }
+    if (init?.signal?.aborted) {
+      throw new OpenHandsAPIRequestNotSentError("OpenHands API request was not sent: signal is already aborted");
+    }
+    const res = await fetch(requestUrl, {
       ...init,
       headers: {
         ...headers,
@@ -54,7 +73,9 @@ export class OpenHandsAPI {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`OpenHands API error ${res.status} ${res.statusText}: ${text}`);
+      throw new OpenHandsAPIRequestRejectedError(
+        `OpenHands API error ${res.status} ${res.statusText}: ${text}`,
+      );
     }
 
     if (parseAs === "blob") return (await res.blob()) as unknown as T;
@@ -118,7 +139,6 @@ export class OpenHandsAPI {
     selectedBranch?: string;
     title?: string;
     parentConversationId?: string;
-    run?: boolean;
   }): Promise<Record<string, unknown>> {
     // NOTE: In many deployments this returns a *start-task* object.
     // `id` is usually the start_task_id; use `app_conversation_id` (if present)
@@ -131,18 +151,95 @@ export class OpenHandsAPI {
         role: "user",
         // V1 expects `content` as an array of parts, even for a single text message.
         content: [{ type: "text", text: req.initialMessage }],
-        run: req.run ?? true,
       },
+      generate_title_on_submit: true,
     };
     if (req.selectedRepository) payload.selected_repository = req.selectedRepository;
     if (req.selectedBranch) payload.selected_branch = req.selectedBranch;
     if (req.title) payload.title = req.title;
     if (req.parentConversationId) payload.parent_conversation_id = req.parentConversationId;
 
-    return await this.request(`${this.apiV1Url}/app-conversations`, {
+    const task = await this.request<Record<string, unknown>>(`${this.apiV1Url}/app-conversations`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    if (typeof task.id !== "string" || typeof task.status !== "string") {
+      throw new Error("OpenHands API returned an invalid app-conversation start task");
+    }
+    return task;
+  }
+
+  async appSubconversationStart(req: {
+    initialMessage: string;
+    parentConversationId: string;
+    operationId?: string;
+    selectedRepository?: string;
+    selectedBranch?: string;
+    title?: string;
+  }): Promise<Record<string, unknown>> {
+    if (!req.parentConversationId) throw new Error("Missing parentConversationId");
+    return await this.appConversationStartGuarded(req);
+  }
+
+  async appConversationStartGuarded(req: {
+    initialMessage: string;
+    operationId?: string;
+    selectedRepository?: string;
+    selectedBranch?: string;
+    title?: string;
+    parentConversationId?: string;
+  }): Promise<Record<string, unknown>> {
+    const operationId = req.operationId ?? OpenHandsAPI.uniqueOperationId();
+    const fingerprint = JSON.stringify({
+      baseUrl: this.baseUrl,
+      initialMessage: req.initialMessage,
+      selectedRepository: req.selectedRepository ?? null,
+      selectedBranch: req.selectedBranch ?? null,
+      title: req.title ?? null,
+      parentConversationId: req.parentConversationId ?? null,
+    });
+    const previous = CONVERSATION_OPERATIONS.get(operationId);
+    if (previous && previous.fingerprint !== fingerprint) {
+      throw new Error(`Conversation operation ${operationId} was already used for a different request`);
+    }
+    if (previous?.status === "created" && previous.startTask) return previous.startTask;
+    if (previous && previous.status !== "failed") {
+      throw new Error(
+        `Conversation operation ${operationId} already has an ${previous.status} create attempt; do not POST again`,
+      );
+    }
+
+    CONVERSATION_OPERATIONS.set(operationId, { status: "claimed", fingerprint });
+    CONVERSATION_OPERATIONS.set(operationId, { status: "uncertain", fingerprint });
+    try {
+      const task = await this.appConversationStart(req);
+      CONVERSATION_OPERATIONS.set(operationId, {
+        status: "created",
+        fingerprint,
+        startTask: task,
+      });
+      return task;
+    } catch (error) {
+      if (
+        error instanceof OpenHandsAPIRequestRejectedError ||
+        error instanceof OpenHandsAPIRequestNotSentError
+      ) {
+        CONVERSATION_OPERATIONS.set(operationId, { status: "failed", fingerprint });
+        throw error;
+      }
+      CONVERSATION_OPERATIONS.set(operationId, { status: "uncertain", fingerprint });
+      throw new Error(
+        `Conversation create outcome is uncertain for operation ${operationId}; do not retry with a new operation id`,
+        { cause: error },
+      );
+    }
+  }
+
+  private static uniqueOperationId(): string {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return `invocation-${globalThis.crypto.randomUUID()}`;
+    }
+    return `invocation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   async appConversationsStartTasksGetBatch(ids: string[]): Promise<Array<Record<string, unknown>>> {

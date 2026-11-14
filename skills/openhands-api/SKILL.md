@@ -209,10 +209,15 @@ start = api.app_subconversation_start(
     initial_message="Talk with the user about books.",
     parent_conversation_id=parent_id,
     title="Books",
+    operation_id="books-request-1",
 )
 ```
 
-After startup, verify the child app record reports `parent_conversation_id` equal to the parent id. Never silently fall back to a top-level conversation when the user explicitly requested a subconversation.
+Pass one explicit, stable `operation_id` when the caller may need to recover the same user request. A completed retry returns the original start task. A stale claim left before transmission can be reclaimed, and a definitive HTTP rejection or known pre-send failure can retry the same operation id. Once transmission may have occurred, the operation is uncertain and refuses another `POST`. Never change the operation id merely to retry - inspect the recorded start task or report the uncertain outcome instead.
+
+If `operation_id` is omitted, each helper invocation generates a new unique id. This permits repeated intentional calls with identical prompts, but it does not provide a stable id for recovery after a crash. The Python ledger uses atomic state replacement and persists across processes; the TypeScript ledger provides the same delivery-aware protection within one process. The guarded helper also supports top-level creates, and the Python CLI applies `--operation-id` whether or not `--parent-conversation-id` is present.
+
+After startup, poll the returned start-task object by its `id`, then verify the child app record reports `parent_conversation_id` equal to the parent id. Never silently fall back to a top-level conversation when the user explicitly requested a subconversation.
 
 ### Minimal cURL flow
 
@@ -229,12 +234,16 @@ curl -X POST "${BASE_URL}/api/v1/app-conversations" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
+    "generate_title_on_submit": true,
     "initial_message": {
+      "role": "user",
       "content": [{"type": "text", "text": "Investigate flaky tests in tests/test_api.py. Report the root cause and propose a fix."}]
     },
     "selected_repository": "owner/repo"
   }'
 ```
+
+The response is one start-task JSON object. Save its `id` before doing anything else. Do not repeat a `POST` whose response was lost or could not be parsed; the API has no create idempotency key, so retrying can create a duplicate conversation. Prefer the guarded helpers for top-level and child conversations because they distinguish recoverable pre-send failures from ambiguous delivery.
 
 If the response does not already include `app_conversation_id`, poll the start-task:
 
