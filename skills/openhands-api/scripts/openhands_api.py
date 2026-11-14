@@ -40,6 +40,13 @@ import httpx
 DEFAULT_BASE_URL = "https://app.all-hands.dev"
 BASE_URL_ENV_VAR = "OPENHANDS_CLOUD_API_URL"
 PREFERRED_API_KEY_ENV_VARS = ("OPENHANDS_CLOUD_API_KEY", "OPENHANDS_API_KEY")
+DEFAULT_INTERNAL_AGENT_SERVER_URL = "http://127.0.0.1:8000"
+INTERNAL_AGENT_SERVER_URL_ENV_VAR = "OH_INTERNAL_SERVER_URL"
+SESSION_API_KEY_ENV_VARS = (
+    "OH_SESSION_API_KEYS_0",
+    "SESSION_API_KEY",
+    "OPENHANDS_API_KEY",
+)
 
 
 # Start-task statuses observed in the wild. These may evolve, so keep this centralized.
@@ -186,6 +193,7 @@ class OpenHandsAPI:
         selected_repository: str | None = None,
         selected_branch: str | None = None,
         title: str | None = None,
+        parent_conversation_id: str | None = None,
         run: bool = True,
     ) -> dict[str, Any]:
         """Start a new V1 app conversation.
@@ -219,6 +227,8 @@ class OpenHandsAPI:
             payload["selected_branch"] = selected_branch
         if title:
             payload["title"] = title
+        if parent_conversation_id:
+            payload["parent_conversation_id"] = parent_conversation_id
 
         r = self._client.post(f"{self.api_v1_url}/app-conversations", json=payload, timeout=120)
         r.raise_for_status()
@@ -232,6 +242,35 @@ class OpenHandsAPI:
         )
         r.raise_for_status()
         return r.json()
+
+    def app_subconversation_start(
+        self,
+        *,
+        initial_message: str,
+        parent_conversation_id: str | None = None,
+        selected_repository: str | None = None,
+        selected_branch: str | None = None,
+        title: str | None = None,
+        run: bool = True,
+    ) -> dict[str, Any]:
+        """Start a child conversation, failing if the parent cannot be identified."""
+        parent_id = (
+            parent_conversation_id
+            or self.current_agent_server_conversation_id()
+        )
+        if not parent_id:
+            raise ValueError(
+                "Current conversation id is unavailable or ambiguous; "
+                "pass parent_conversation_id explicitly"
+            )
+        return self.app_conversation_start(
+            initial_message=initial_message,
+            selected_repository=selected_repository,
+            selected_branch=selected_branch,
+            title=title,
+            parent_conversation_id=parent_id,
+            run=run,
+        )
 
     def app_conversation_start_task_get(self, task_id: str) -> dict[str, Any] | None:
         items = self.app_conversations_start_tasks_get_batch(ids=[task_id])
@@ -312,6 +351,46 @@ class OpenHandsAPI:
     @staticmethod
     def agent_headers(session_api_key: str) -> dict[str, str]:
         return {"X-Session-API-Key": session_api_key, "Content-Type": "application/json"}
+
+    @staticmethod
+    def current_agent_server_conversation_id(
+        *,
+        agent_server_url: str | None = None,
+        session_api_key: str | None = None,
+    ) -> str | None:
+        """Return the current hosted conversation id when it is unambiguous.
+
+        Hosted sandboxes expose the current conversation through their internal
+        agent-server catalog, not a dedicated conversation-id environment variable.
+        Refuse to guess if the catalog contains zero or multiple conversations.
+        """
+        resolved_url = (
+            agent_server_url
+            or os.getenv(INTERNAL_AGENT_SERVER_URL_ENV_VAR)
+            or DEFAULT_INTERNAL_AGENT_SERVER_URL
+        ).rstrip("/")
+        resolved_key = session_api_key
+        if not resolved_key:
+            for env_name in SESSION_API_KEY_ENV_VARS:
+                resolved_key = os.getenv(env_name)
+                if resolved_key:
+                    break
+        if not resolved_key:
+            return None
+
+        r = httpx.get(
+            f"{resolved_url}/api/conversations/search",
+            headers=OpenHandsAPI.agent_headers(resolved_key),
+            params={"limit": 2},
+            timeout=30,
+        )
+        r.raise_for_status()
+        data = r.json()
+        items = data.get("items", []) if isinstance(data, dict) else []
+        if len(items) != 1 or not isinstance(items[0], dict):
+            return None
+        conversation_id = items[0].get("id")
+        return str(conversation_id) if conversation_id else None
 
 
     @staticmethod
@@ -480,6 +559,7 @@ class OpenHandsAPI:
         selected_repository: str | None = None,
         selected_branch: str | None = None,
         title: str | None = None,
+        parent_conversation_id: str | None = None,
         append_file: str | Path | None = None,
         run: bool = True,
     ) -> dict[str, Any]:
@@ -495,6 +575,7 @@ class OpenHandsAPI:
             selected_repository=selected_repository,
             selected_branch=selected_branch,
             title=title,
+            parent_conversation_id=parent_conversation_id,
             run=run,
         )
 
@@ -580,6 +661,7 @@ def _cmd_start_conversation(args: argparse.Namespace) -> int:
             selected_repository=args.repo,
             selected_branch=args.branch,
             title=args.title,
+            parent_conversation_id=args.parent_conversation_id,
             append_file=args.append_file,
             run=not args.no_run,
         )
@@ -623,6 +705,11 @@ def main(argv: list[str] | None = None) -> int:
     p_start.add_argument("--repo", default=None)
     p_start.add_argument("--branch", default=None)
     p_start.add_argument("--title", default=None)
+    p_start.add_argument(
+        "--parent-conversation-id",
+        default=None,
+        help="Set parent_conversation_id to create a child conversation",
+    )
     p_start.add_argument("--no-run", action="store_true", help="If set, do not auto-run after sending initial message")
     p_start.set_defaults(func=_cmd_start_conversation)
 

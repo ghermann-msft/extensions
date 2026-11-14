@@ -27,6 +27,8 @@ Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conver
 
 Keep delegated prompts self-contained: include the repository, branch, relevant files, constraints, and expected output. Prefer five or fewer concurrently running delegated conversations.
 
+For an explicit subconversation request, pass the current app conversation UUID as `parent_conversation_id`. The Python helper can discover it from the hosted sandbox's internal agent-server catalog with `OpenHandsAPI.current_agent_server_conversation_id()` when that catalog contains exactly one conversation. Ordinary calls that omit the field continue to create top-level conversations.
+
 ## Start-task vs app conversation id
 
 In many deployments, `POST /api/v1/app-conversations` returns a **start-task** object.

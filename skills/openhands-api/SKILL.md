@@ -191,6 +191,29 @@ When you start a delegated Cloud conversation:
 5. Monitor the delegated conversation via `GET /api/v1/app-conversations?ids=...`.
 6. Share or store the conversation's `conversation_ui_url` from that response. It opens the conversation in Agent Canvas. If the server does not return it, use `<base_url>/canvas/conversations/<app_conversation_id>`, where `<base_url>` is the server you called the API on. Never share `conversation_url`; it is the sandbox's agent-server API, not a page users can open.
 
+### Subconversations
+
+When the user asks for a **subconversation**, **child conversation**, or conversation "under this one", include the current app conversation UUID as `parent_conversation_id` in the `POST /api/v1/app-conversations` payload. Omitting it intentionally creates a separate top-level conversation.
+
+A hosted sandbox does not provide a dedicated conversation-id environment variable. The internal agent server does expose its conversation catalog through `GET /api/conversations/search`, authenticated with the sandbox session key. `OpenHandsAPI.current_agent_server_conversation_id()` uses `OH_INTERNAL_SERVER_URL` (default `http://127.0.0.1:8000`) and the first available key from `OH_SESSION_API_KEYS_0`, `SESSION_API_KEY`, or `OPENHANDS_API_KEY`. It returns an id only when exactly one conversation is present; if the catalog is empty or ambiguous, do not guess - obtain the current conversation id from explicit context or tell the user a child link cannot be established.
+
+```python
+from openhands_api import OpenHandsAPI
+
+api = OpenHandsAPI()
+parent_id = api.current_agent_server_conversation_id()
+if not parent_id:
+    raise RuntimeError("Current conversation id is unavailable or ambiguous")
+
+start = api.app_subconversation_start(
+    initial_message="Talk with the user about books.",
+    parent_conversation_id=parent_id,
+    title="Books",
+)
+```
+
+After startup, verify the child app record reports `parent_conversation_id` equal to the parent id. Never silently fall back to a top-level conversation when the user explicitly requested a subconversation.
+
 ### Minimal cURL flow
 
 ```bash
@@ -242,6 +265,7 @@ start = api.app_conversation_start(
     selected_repository="owner/repo",
     selected_branch="main",
     title="Dashboard component task",
+    # Set parent_conversation_id=current_id only when a child was requested.
 )
 
 ready = start

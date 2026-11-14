@@ -46,6 +46,7 @@ def test_app_conversation_start_builds_v1_payload(monkeypatch):
         selected_repository="o/r",
         selected_branch="main",
         title="Test title",
+        parent_conversation_id="parent-1",
         run=False,
     )
 
@@ -61,7 +62,117 @@ def test_app_conversation_start_builds_v1_payload(monkeypatch):
         "selected_repository": "o/r",
         "selected_branch": "main",
         "title": "Test title",
+        "parent_conversation_id": "parent-1",
     }
+
+
+def test_app_conversation_start_omits_parent_for_top_level_conversation(monkeypatch):
+    mod = _load_openhands_api_module()
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "task-1"}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def post(self, _url, json=None, timeout=None):
+            captured["json"] = json
+            return FakeResp()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+
+    mod.OpenHandsAPI(api_key="k").app_conversation_start(initial_message="hi")
+
+    assert "parent_conversation_id" not in captured["json"]
+
+
+def test_current_agent_server_conversation_id_returns_only_unambiguous_match(monkeypatch):
+    mod = _load_openhands_api_module()
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"items": [{"id": "parent-1"}]}
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        captured.update(url=url, headers=headers, params=params, timeout=timeout)
+        return FakeResp()
+
+    monkeypatch.setenv("OH_INTERNAL_SERVER_URL", "http://agent-server:8000/")
+    monkeypatch.setenv("OH_SESSION_API_KEYS_0", "session-key")
+    monkeypatch.setattr(mod.httpx, "get", fake_get)
+
+    conversation_id = mod.OpenHandsAPI.current_agent_server_conversation_id()
+
+    assert conversation_id == "parent-1"
+    assert captured == {
+        "url": "http://agent-server:8000/api/conversations/search",
+        "headers": {
+            "X-Session-API-Key": "session-key",
+            "Content-Type": "application/json",
+        },
+        "params": {"limit": 2},
+        "timeout": 30,
+    }
+
+
+def test_current_agent_server_conversation_id_refuses_ambiguous_catalog(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"items": [{"id": "one"}, {"id": "two"}]}
+
+    monkeypatch.setattr(mod.httpx, "get", lambda *args, **kwargs: FakeResp())
+
+    assert (
+        mod.OpenHandsAPI.current_agent_server_conversation_id(
+            session_api_key="session-key"
+        )
+        is None
+    )
+
+
+def test_app_subconversation_start_fails_instead_of_creating_top_level(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+    monkeypatch.setattr(
+        mod.OpenHandsAPI,
+        "current_agent_server_conversation_id",
+        lambda *_args, **_kwargs: None,
+    )
+
+    api = mod.OpenHandsAPI(api_key="k")
+
+    try:
+        api.app_subconversation_start(initial_message="Talk about books")
+    except ValueError as exc:
+        assert "pass parent_conversation_id explicitly" in str(exc)
+    else:
+        raise AssertionError("Expected ambiguous parent discovery to fail")
 
 
 def test_client_prefers_configured_cloud_api_url(monkeypatch):

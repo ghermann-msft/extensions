@@ -117,6 +117,7 @@ export class OpenHandsAPI {
     selectedRepository?: string;
     selectedBranch?: string;
     title?: string;
+    parentConversationId?: string;
     run?: boolean;
   }): Promise<Record<string, unknown>> {
     // NOTE: In many deployments this returns a *start-task* object.
@@ -136,6 +137,7 @@ export class OpenHandsAPI {
     if (req.selectedRepository) payload.selected_repository = req.selectedRepository;
     if (req.selectedBranch) payload.selected_branch = req.selectedBranch;
     if (req.title) payload.title = req.title;
+    if (req.parentConversationId) payload.parent_conversation_id = req.parentConversationId;
 
     return await this.request(`${this.apiV1Url}/app-conversations`, {
       method: "POST",

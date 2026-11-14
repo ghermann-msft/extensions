@@ -15,6 +15,8 @@ def test_openhands_api_skill_uses_hosted_delegation_configuration_first():
     assert "both `OPENHANDS_CLOUD_API_URL` and `OPENHANDS_API_KEY` are present" in text
     assert "do not probe SaaS, Front Door, localhost services" in text
     assert "`/api/v1/users/me` is not a universal auth-validation endpoint" in text
+    assert "include the current app conversation UUID as `parent_conversation_id`" in text
+    assert "Never silently fall back to a top-level conversation" in text
 
 
 def test_agent_canvas_skill_falls_back_to_local_only_without_hosted_configuration():
