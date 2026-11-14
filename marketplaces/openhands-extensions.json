@@ -122,7 +122,7 @@
     {
       "name": "agent-canvas-environment",
       "source": "./skills/agent-canvas-environment",
-      "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
+      "description": "Select hosted app-level delegation or genuine local Agent Canvas flows correctly, including auth, workspace hygiene, and conversation delegation.",
       "category": "agent-authoring",
       "defaultEnabled": true,
       "keywords": [
@@ -492,7 +492,7 @@
     {
       "name": "openhands-api",
       "source": "./skills/openhands-api",
-      "description": "Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations, including multi-conversation delegation workflows. Includes minimal Python and TypeScript clients under scripts/.",
+      "description": "Use configured OpenHands app REST APIs (V1) and agent-server APIs to create and manage hosted, SaaS, or local backend conversations, including multi-conversation delegation workflows. Includes minimal Python and TypeScript clients under scripts/.",
       "category": "agent-authoring",
       "defaultEnabled": true,
       "keywords": [

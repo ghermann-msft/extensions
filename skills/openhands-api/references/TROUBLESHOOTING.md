@@ -11,14 +11,21 @@ This file documents common issues encountered when working with the OpenHands Cl
 **Solution:** Use the batch endpoint with the `ids` query parameter:
 
 ```bash
+BASE_URL="${OPENHANDS_CLOUD_API_URL:-${BASE_URL:-https://app.all-hands.dev}}"
+if [ -n "${OPENHANDS_CLOUD_API_URL:-}" ] && [ -n "${OPENHANDS_API_KEY:-}" ]; then
+  API_KEY="$OPENHANDS_API_KEY"
+else
+  API_KEY="${OPENHANDS_CLOUD_API_KEY:-${OPENHANDS_API_KEY:-}}"
+fi
+
 # ❌ Wrong (returns HTML)
-curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations/${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
+curl "${BASE_URL}/api/v1/app-conversations/${APP_CONVERSATION_ID}" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json"
 
 # ✅ Correct (returns JSON)
-curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
+curl "${BASE_URL}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json"
 ```
 

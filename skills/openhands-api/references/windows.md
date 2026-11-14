@@ -5,16 +5,22 @@ Use these PowerShell forms when running this skill's shell examples natively on 
 ## Environment Variables
 
 ```powershell
+$env:OPENHANDS_CLOUD_API_URL = "https://your-openhands-app"
 $env:OPENHANDS_CLOUD_API_KEY = "..."
 ```
+
+When `OPENHANDS_CLOUD_API_URL` and `OPENHANDS_API_KEY` are both present in a hosted sandbox, use that pair instead. Do not print either key.
 
 ## Curl Examples
 
 Call `curl.exe` and use PowerShell backticks for line continuation:
 
 ```powershell
-curl.exe -X POST "https://app.all-hands.dev/api/v1/app-conversations" `
-  -H "Authorization: Bearer $env:OPENHANDS_CLOUD_API_KEY" `
+$baseUrl = if ($env:OPENHANDS_CLOUD_API_URL) { $env:OPENHANDS_CLOUD_API_URL.TrimEnd("/") } else { "https://app.all-hands.dev" }
+$apiKey = if ($env:OPENHANDS_CLOUD_API_URL -and $env:OPENHANDS_API_KEY) { $env:OPENHANDS_API_KEY } elseif ($env:OPENHANDS_CLOUD_API_KEY) { $env:OPENHANDS_CLOUD_API_KEY } else { $env:OPENHANDS_API_KEY }
+
+curl.exe -X POST "$baseUrl/api/v1/app-conversations" `
+  -H "Authorization: Bearer $apiKey" `
   -H "Content-Type: application/json" `
   -d '{
     "initial_message": {
@@ -37,8 +43,8 @@ for i, e in enumerate(items):
     print(f"{i:04d}  {e.get('timestamp','')}  {e.get('source','')}  {e.get('kind','')}")
 '@ | Set-Content -LiteralPath $script -Encoding utf8
 
-curl.exe -s "https://app.all-hands.dev/api/v1/conversation/$env:APP_CONVERSATION_ID/events/search?limit=100" `
-  -H "Authorization: Bearer $env:OPENHANDS_CLOUD_API_KEY" `
+curl.exe -s "$baseUrl/api/v1/conversation/$env:APP_CONVERSATION_ID/events/search?limit=100" `
+  -H "Authorization: Bearer $apiKey" `
   -H "Accept: application/json" |
   python $script
 ```

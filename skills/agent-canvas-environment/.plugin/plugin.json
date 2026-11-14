@@ -1,7 +1,7 @@
 {
   "name": "agent-canvas-environment",
   "version": "1.0.0",
-  "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, frontend/backend port discovery, safe workspace hygiene, and local conversation delegation.",
+  "description": "Select hosted app-level delegation or genuine local Agent Canvas flows correctly, including auth, port discovery, workspace hygiene, and conversation delegation.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"

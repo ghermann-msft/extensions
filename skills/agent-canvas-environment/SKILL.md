@@ -1,6 +1,6 @@
 ---
 name: agent-canvas-environment
-description: Work effectively inside a local Agent Canvas environment, including local agent-server auth, frontend/backend port discovery, safe workspace hygiene, and delegating work to a new local conversation through POST /api/conversations.
+description: Select hosted app-level delegation or genuine local Agent Canvas flows correctly, including auth, port discovery, workspace hygiene, and conversation delegation.
 triggers:
 - agent canvas
 - agent-canvas
@@ -13,10 +13,12 @@ triggers:
 
 # Agent Canvas Environment
 
-Use this skill when running inside or alongside a local Agent Canvas stack, especially when the user asks to inspect the local backend, create or monitor local conversations, or delegate work to another local conversation.
+Use this skill when running inside or alongside Agent Canvas, especially when the user asks to inspect the backend, create or monitor conversations, or delegate work to another conversation.
 
 ## Core rules
 
+- When both `OPENHANDS_CLOUD_API_URL` and `OPENHANDS_API_KEY` are present, treat them as authoritative hosted app-level delegation configuration.
+- In that hosted case, use Bearer auth with the configured base URL and `POST /api/v1/app-conversations`; do not probe localhost, persisted Canvas keys, `/api/settings`, or `/api/v1/users/me` first.
 - Treat the local Agent Canvas backend as an agent-server API, usually `http://localhost:8001`.
 - Treat the local UI as a separate frontend, usually `http://localhost:8000`.
 - Do not print session API keys. Pass them directly in `X-Session-API-Key`.
@@ -24,7 +26,25 @@ Use this skill when running inside or alongside a local Agent Canvas stack, espe
 - Before mutating a repository, check `git status -sb`. If a worktree has unrelated changes, use a separate worktree or clone.
 - When delegating, write a self-contained prompt. The new conversation does not inherit the current chat context.
 
+## Select the delegation path
+
+Check the authoritative hosted variables before testing local services:
+
+```bash
+if [ -n "${OPENHANDS_CLOUD_API_URL:-}" ] && [ -n "${OPENHANDS_API_KEY:-}" ]; then
+  BASE="${OPENHANDS_CLOUD_API_URL%/}"
+  curl -sS -X POST "$BASE/api/v1/app-conversations" \
+    -H "Authorization: Bearer $OPENHANDS_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @delegation.json
+fi
+```
+
+Poll the returned start task at `$BASE/api/v1/app-conversations/start-tasks?ids=<start_task_id>` until it reaches `READY`. Do not print the key. Only use the local Agent Canvas flow below when those two authoritative variables are not both present.
+
 ## Find the session key
+
+This section applies only to a genuinely local Agent Canvas environment after the hosted-variable check above.
 
 Use the first available value, without echoing it:
 

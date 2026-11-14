@@ -15,7 +15,7 @@ Windows PowerShell equivalents for the shell examples in this skill are in `refe
 
 It is intentionally focused on common OpenHands API workflows:
 
-- Defaults to OpenHands Cloud (`https://app.all-hands.dev`).
+- Uses `OPENHANDS_CLOUD_API_URL` when configured, otherwise defaults to OpenHands Cloud (`https://app.all-hands.dev`).
 - Targets the **V1 app server REST API** under `/api/v1/...`.
 - Includes a few **agent server** endpoints (inside a sandbox) that use `X-Session-API-Key`.
 - Covers the **multi-conversation delegation pattern**: start separate Cloud conversations when you want fresh context windows or background work.
@@ -39,8 +39,20 @@ Use this skill when you need to:
 Use Bearer auth:
 
 - Header: `Authorization: Bearer <OPENHANDS_CLOUD_API_KEY>`
-- Preferred env var: `OPENHANDS_CLOUD_API_KEY`
-- Backward-compatible env var: `OPENHANDS_API_KEY`
+- SaaS preferred env var: `OPENHANDS_CLOUD_API_KEY`
+- Backward-compatible env var and authoritative hosted sandbox key: `OPENHANDS_API_KEY`
+- Base URL env var: `OPENHANDS_CLOUD_API_URL`
+
+### Hosted sandbox precedence
+
+When both `OPENHANDS_CLOUD_API_URL` and `OPENHANDS_API_KEY` are present, they are the authoritative app-level delegation configuration for the hosted sandbox:
+
+- use `OPENHANDS_CLOUD_API_URL` as the base URL
+- send `Authorization: Bearer $OPENHANDS_API_KEY`
+- delegate with `POST /api/v1/app-conversations` and poll `GET /api/v1/app-conversations/start-tasks?ids=...`
+- do not probe SaaS, Front Door, localhost services, persisted Agent Canvas keys, `/api/settings`, or `/api/v1/users/me` first
+
+Bearer authorization can be route-scoped. A successful app-conversation request is the credential check for this workflow; `/api/v1/users/me` is not a universal auth-validation endpoint. Never print either API key.
 
 ### Agent server (inside a sandbox)
 
@@ -78,7 +90,7 @@ If those fields are not present on the conversation record, list/search sandboxe
 
 ### Local Agent Canvas backend
 
-Use the local backend flow only for local Agent Canvas / agent-server development, such as `agent-canvas`, `agent-canvas --backend-only`, or `npm run dev` with ingress at `http://localhost:8000`. This calls the agent server directly with `X-Session-API-Key`. It is not an automation, and it is different from OpenHands Cloud delegation through `POST /api/v1/app-conversations`, which uses Bearer auth against the Cloud app API and may return asynchronous start-task records.
+Use the local backend flow only when the authoritative hosted variables above are absent and this is genuinely local Agent Canvas / agent-server development, such as `agent-canvas`, `agent-canvas --backend-only`, or `npm run dev` with ingress at `http://localhost:8000`. This calls the agent server directly with `X-Session-API-Key`. It is not an automation, and it is different from OpenHands Cloud delegation through `POST /api/v1/app-conversations`, which uses Bearer auth against the Cloud app API and may return asynchronous start-task records.
 
 When Agent Canvas runs locally, the launcher uses `LOCAL_BACKEND_API_KEY` when it is set. Otherwise it generates and persists the session API key at `~/.openhands/agent-canvas/api-key.txt`. Set `OH_SESSION_API_KEY_PATH` to override the persisted key path. Never print, log, or paste the actual key; use command substitution or an environment variable in examples and scripts.
 
@@ -146,7 +158,7 @@ printf '%s/conversations/%s\n' "${LOCAL_AGENT_SERVER_URL}" "${CONVERSATION_ID}"
 
 The following are the main endpoints implemented in the minimal client:
 
-- `GET /api/v1/users/me` — validate auth and inspect current account
+- `GET /api/v1/users/me` — inspect the current account when that route is authorized
 - `GET /api/v1/app-conversations/search?limit=...` — list recent conversations
 - `GET /api/v1/app-conversations?ids=...` — fetch conversation records by id (batch)
 - `GET /api/v1/app-conversations/count` — count conversations
@@ -182,8 +194,16 @@ When you start a delegated Cloud conversation:
 ### Minimal cURL flow
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/v1/app-conversations" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY}" \
+BASE_URL="${OPENHANDS_CLOUD_API_URL:-https://app.all-hands.dev}"
+if [ -n "${OPENHANDS_CLOUD_API_URL:-}" ] && [ -n "${OPENHANDS_API_KEY:-}" ]; then
+  API_KEY="$OPENHANDS_API_KEY"
+else
+  API_KEY="${OPENHANDS_CLOUD_API_KEY:-${OPENHANDS_API_KEY:-}}"
+fi
+test -n "$API_KEY" || { echo "No OpenHands API key found" >&2; exit 1; }
+
+curl -X POST "${BASE_URL}/api/v1/app-conversations" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "initial_message": {
@@ -196,15 +216,15 @@ curl -X POST "https://app.all-hands.dev/api/v1/app-conversations" \
 If the response does not already include `app_conversation_id`, poll the start-task:
 
 ```bash
-curl -s "https://app.all-hands.dev/api/v1/app-conversations/start-tasks?ids=${START_TASK_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY}"
+curl -s "${BASE_URL}/api/v1/app-conversations/start-tasks?ids=${START_TASK_ID}" \
+  -H "Authorization: Bearer ${API_KEY}"
 ```
 
 Then check execution status and get the link to share (`conversation_ui_url`):
 
 ```bash
-curl -s "https://app.all-hands.dev/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY}"
+curl -s "${BASE_URL}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
+  -H "Authorization: Bearer ${API_KEY}"
 ```
 
 ### Minimal Python flow
@@ -212,7 +232,7 @@ curl -s "https://app.all-hands.dev/api/v1/app-conversations?ids=${APP_CONVERSATI
 ```python
 from openhands_api import OpenHandsAPI
 
-api = OpenHandsAPI()  # prefers OPENHANDS_CLOUD_API_KEY
+api = OpenHandsAPI()  # uses OPENHANDS_CLOUD_API_URL when set
 
 start = api.app_conversation_start(
     initial_message=(
@@ -356,11 +376,23 @@ Example (simplified):
 
 These assume you're querying the **app server** endpoint. For agent-server queries, swap the URL base + use `X-Session-API-Key`.
 
+Initialize the app-server variables once without printing the key:
+
+```bash
+BASE_URL="${OPENHANDS_CLOUD_API_URL:-${BASE_URL:-https://app.all-hands.dev}}"
+if [ -n "${OPENHANDS_CLOUD_API_URL:-}" ] && [ -n "${OPENHANDS_API_KEY:-}" ]; then
+  API_KEY="$OPENHANDS_API_KEY"
+else
+  API_KEY="${OPENHANDS_CLOUD_API_KEY:-${OPENHANDS_API_KEY:-}}"
+fi
+test -n "$API_KEY" || { echo "No OpenHands API key found" >&2; exit 1; }
+```
+
 ### Print a quick timeline
 
 ```bash
-curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=100" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
+curl -s "${BASE_URL}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=100" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" | \
 python3 - <<'PY'
 import json, sys
@@ -373,8 +405,8 @@ PY
 ### Find error-like events
 
 ```bash
-curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
+curl -s "${BASE_URL}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" | \
 python3 - <<'PY'
 import json, sys
@@ -388,8 +420,8 @@ PY
 ### Check tool-call matching (unmatched actions / duplicate observations)
 
 ```bash
-curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
-  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
+curl -s "${BASE_URL}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
+  -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" | \
 python3 - <<'PY'
 import json, sys

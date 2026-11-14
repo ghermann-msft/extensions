@@ -11,11 +11,10 @@ The V1 API is hosted on the OpenHands app server under:
   {BASE_URL}/api/v1/...
 
 Typical workflow for common operations:
-1) Discover: GET /api/v1/users/me
-2) List/search conversations: GET /api/v1/app-conversations/search
-3) Start a conversation (creates sandbox): POST /api/v1/app-conversations
-4) Monitor events for a conversation: GET /api/v1/conversation/{id}/events/search
-5) (Optional) download trajectory: GET /api/v1/app-conversations/{id}/download
+1) List/search conversations: GET /api/v1/app-conversations/search
+2) Start a conversation (creates sandbox): POST /api/v1/app-conversations
+3) Monitor events for a conversation: GET /api/v1/conversation/{id}/events/search
+4) (Optional) download trajectory: GET /api/v1/app-conversations/{id}/download
 
 Note: Some operations happen against the *agent server* running inside a sandbox
 (not the app server). Those endpoints use X-Session-API-Key instead of Bearer auth.
@@ -39,6 +38,7 @@ import httpx
 
 
 DEFAULT_BASE_URL = "https://app.all-hands.dev"
+BASE_URL_ENV_VAR = "OPENHANDS_CLOUD_API_URL"
 PREFERRED_API_KEY_ENV_VARS = ("OPENHANDS_CLOUD_API_KEY", "OPENHANDS_API_KEY")
 
 
@@ -65,8 +65,11 @@ class OpenHandsAPIConfig:
 class OpenHandsAPI:
     """Minimal OpenHands Cloud API client for the supported V1 API."""
 
-    def __init__(self, api_key: str | None = None, base_url: str = DEFAULT_BASE_URL):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
+        configured_base_url = os.getenv(BASE_URL_ENV_VAR)
         resolved_key = api_key
+        if not resolved_key and base_url is None and configured_base_url:
+            resolved_key = os.getenv("OPENHANDS_API_KEY")
         if not resolved_key:
             for env_name in PREFERRED_API_KEY_ENV_VARS:
                 resolved_key = os.getenv(env_name)
@@ -76,7 +79,11 @@ class OpenHandsAPI:
             env_list = ", ".join(PREFERRED_API_KEY_ENV_VARS)
             raise ValueError(f"Missing API key. Set one of: {env_list}, or pass api_key=...")
 
-        self._cfg = OpenHandsAPIConfig(api_key=resolved_key, base_url=base_url.rstrip("/"))
+        resolved_base_url = base_url or configured_base_url or DEFAULT_BASE_URL
+        self._cfg = OpenHandsAPIConfig(
+            api_key=resolved_key,
+            base_url=resolved_base_url.rstrip("/"),
+        )
         self._client = httpx.Client(
             headers={
                 "Authorization": f"Bearer {self._cfg.api_key}",
@@ -592,7 +599,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Defaults to OPENHANDS_CLOUD_API_KEY, then OPENHANDS_API_KEY",
     )
-    p_search.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    p_search.add_argument(
+        "--base-url",
+        default=None,
+        help=f"Defaults to {BASE_URL_ENV_VAR}, then {DEFAULT_BASE_URL}",
+    )
     p_search.add_argument("--limit", type=int, default=5)
     p_search.set_defaults(func=_cmd_search_conversations)
 
@@ -602,7 +613,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Defaults to OPENHANDS_CLOUD_API_KEY, then OPENHANDS_API_KEY",
     )
-    p_start.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    p_start.add_argument(
+        "--base-url",
+        default=None,
+        help=f"Defaults to {BASE_URL_ENV_VAR}, then {DEFAULT_BASE_URL}",
+    )
     p_start.add_argument("--prompt-file", required=True)
     p_start.add_argument("--append-file", default=None)
     p_start.add_argument("--repo", default=None)

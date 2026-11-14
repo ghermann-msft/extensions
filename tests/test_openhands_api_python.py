@@ -64,6 +64,69 @@ def test_app_conversation_start_builds_v1_payload(monkeypatch):
     }
 
 
+def test_client_prefers_configured_cloud_api_url(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def close(self):
+            return None
+
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_URL", "http://openhands-sandbox-server:3000/")
+    monkeypatch.setenv("OPENHANDS_API_KEY", "sandbox-key")
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_KEY", "saas-key")
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+
+    api = mod.OpenHandsAPI()
+
+    assert api.base_url == "http://openhands-sandbox-server:3000"
+    assert api._client.kwargs["headers"]["Authorization"] == "Bearer sandbox-key"
+
+
+def test_client_falls_back_to_saas_without_configured_url(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def close(self):
+            return None
+
+    monkeypatch.delenv("OPENHANDS_CLOUD_API_URL", raising=False)
+    monkeypatch.setenv("OPENHANDS_API_KEY", "legacy-key")
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_KEY", "cloud-key")
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+
+    api = mod.OpenHandsAPI()
+
+    assert api.base_url == mod.DEFAULT_BASE_URL
+    assert api._client.kwargs["headers"]["Authorization"] == "Bearer cloud-key"
+
+
+def test_explicit_client_configuration_overrides_environment(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def close(self):
+            return None
+
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_URL", "http://openhands-sandbox-server:3000")
+    monkeypatch.setenv("OPENHANDS_API_KEY", "sandbox-key")
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_KEY", "cloud-key")
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+
+    api = mod.OpenHandsAPI(base_url="https://app.example.com")
+
+    assert api.base_url == "https://app.example.com"
+    assert api._client.kwargs["headers"]["Authorization"] == "Bearer cloud-key"
+
+
 def test_app_conversations_get_batch_passes_ids(monkeypatch):
     mod = _load_openhands_api_module()
     OpenHandsAPI = mod.OpenHandsAPI

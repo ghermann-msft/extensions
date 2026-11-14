@@ -4,7 +4,7 @@ Reference skill + minimal clients for the **OpenHands Cloud API** (V1) and commo
 
 This skill now also covers the **multi-conversation delegation pattern**: start additional Cloud conversations when you want fresh context windows, background work, or parallel tasks.
 
-It also covers direct local Agent Canvas backend conversations when you need to call a local agent server with `X-Session-API-Key` instead of creating a Cloud app conversation.
+It also covers direct local Agent Canvas backend conversations when authoritative hosted delegation variables are absent and you need to call a local agent server with `X-Session-API-Key` instead of creating an app conversation.
 
 - Skill instructions and endpoint overview: [`SKILL.md`](./SKILL.md)
 - Minimal Python client: [`scripts/openhands_api.py`](./scripts/openhands_api.py)
@@ -14,11 +14,12 @@ It also covers direct local Agent Canvas backend conversations when you need to 
 ## Quick start
 
 ```bash
+export OPENHANDS_CLOUD_API_URL="https://your-openhands-app"
 export OPENHANDS_CLOUD_API_KEY="..."
 python skills/openhands-api/scripts/openhands_api.py search-conversations --limit 5
 ```
 
-The Python client prefers `OPENHANDS_CLOUD_API_KEY` and falls back to `OPENHANDS_API_KEY`.
+The Python client uses `OPENHANDS_CLOUD_API_URL` when set and otherwise defaults to `https://app.all-hands.dev`. In a hosted sandbox where `OPENHANDS_CLOUD_API_URL` and `OPENHANDS_API_KEY` are both present, that pair takes precedence for app-conversation delegation; do not probe local Agent Canvas or `/api/v1/users/me` first. Outside that hosted configuration, the client prefers `OPENHANDS_CLOUD_API_KEY` and falls back to `OPENHANDS_API_KEY`.
 
 ## Delegating work with new Cloud conversations
 

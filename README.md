@@ -124,7 +124,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
-| agent-canvas-environment | skill | Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, ... | — |
+| agent-canvas-environment | skill | Select hosted app-level delegation or genuine local Agent Canvas flows correctly, including auth, workspace hygiene, ... | — |
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
@@ -172,7 +172,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
-| openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |
+| openhands-api | skill | Use configured OpenHands app REST APIs (V1) and agent-server APIs to create and manage hosted, SaaS, or local backend... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | openhands-enterprise-troubleshooting | skill | Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures... | — |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
