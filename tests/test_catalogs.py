@@ -122,6 +122,32 @@ def test_datadog_mcp_uses_documented_api_key_headers():
     ] == ["DD-API-KEY", "DD-APPLICATION-KEY"]
 
 
+def test_atlassian_rovo_prefers_compound_api_token_basic_auth():
+    atlassian = next(
+        entry
+        for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "atlassian-rovo"
+    )
+
+    assert [option["id"] for option in atlassian["connectionOptions"]] == [
+        "api-token",
+        "oauth",
+    ]
+    api_token, oauth = atlassian["connectionOptions"]
+    assert api_token["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v2/mcp",
+    }
+    assert api_token["auth"]["strategy"] == "basic"
+    assert api_token["auth"]["basic"]["username"]["key"] == "email"
+    assert api_token["auth"]["basic"]["username"]["type"] == "text"
+    assert api_token["auth"]["basic"]["password"]["key"] == "token"
+    assert api_token["auth"]["basic"]["password"]["type"] == "password"
+    assert "appId=mcp-v2" in api_token["auth"]["basic"]["password"]["helperText"]
+    assert oauth["auth"]["strategy"] == "oauth2"
+    assert oauth["transport"]["url"] == "https://mcp.atlassian.com/v2/mcp"
+
+
 def test_credential_fields_have_helper_text_and_link():
     """All password fields must have helperText plus a link (either a helperLink field or a
     markdown link embedded in helperText) so users know how to get credentials."""
@@ -130,22 +156,29 @@ def test_credential_fields_have_helper_text_and_link():
     for entry in load_catalog_entries("integrations/catalog"):
         for option in entry["connectionOptions"]:
             transport = option.get("transport", {})
-            for field_group in ("envFields", "argFields", "headerFields"):
-                for field in transport.get(field_group, []):
-                    if field.get("type") == "password":
-                        field_key = field.get("key", "<unknown>")
-                        assert "helperText" in field, (
-                            f"{entry['id']}: password field '{field_key}' is missing helperText"
-                        )
-                        assert field["helperText"], (
-                            f"{entry['id']}: password field '{field_key}' has empty helperText"
-                        )
-                        has_helper_link = field.get("helperLink", "").startswith("https://")
-                        has_inline_link = bool(markdown_link_re.search(field["helperText"]))
-                        assert has_helper_link or has_inline_link, (
-                            f"{entry['id']}: password field '{field_key}' must have a helperLink "
-                            f"or a markdown link in helperText"
-                        )
+            fields = [
+                field
+                for field_group in ("envFields", "argFields", "headerFields")
+                for field in transport.get(field_group, [])
+            ]
+            basic = option["auth"].get("basic")
+            if basic:
+                fields.extend((basic["username"], basic["password"]))
+            for field in fields:
+                if field.get("type") == "password":
+                    field_key = field.get("key", "<unknown>")
+                    assert "helperText" in field, (
+                        f"{entry['id']}: password field '{field_key}' is missing helperText"
+                    )
+                    assert field["helperText"], (
+                        f"{entry['id']}: password field '{field_key}' has empty helperText"
+                    )
+                    has_helper_link = field.get("helperLink", "").startswith("https://")
+                    has_inline_link = bool(markdown_link_re.search(field["helperText"]))
+                    assert has_helper_link or has_inline_link, (
+                        f"{entry['id']}: password field '{field_key}' must have a helperLink "
+                        f"or a markdown link in helperText"
+                    )
 
 
 def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():

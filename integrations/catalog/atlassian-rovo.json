@@ -9,8 +9,8 @@
   ],
   "appUrl": "https://www.atlassian.com/rovo",
   "docsUrl": "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/",
-  "notes": "OAuth 2.1 is handled entirely by the Atlassian Rovo MCP server. No client credentials required - sign in with your Atlassian account when the authentication flow starts. This is Atlassian MCP v2, which lists its most-used tools directly and the rest through its discover and execute tools; it is also the MCP server for Bitbucket Cloud.",
-  "installHint": "Atlassian Rovo is Atlassian's hosted MCP server for Atlassian Cloud: it reaches Jira Cloud, Confluence Cloud, and Bitbucket Cloud workspaces linked to an Atlassian organization, but not Jira, Confluence, or Bitbucket Data Center.",
+  "notes": "API token authentication is preferred here for non-interactive use: provide the Atlassian account email and a personal API token created for Atlassian MCP 2, and the client composes HTTP Basic authentication. Organization administrators must enable API token authentication. OAuth 2.1 remains available and is Atlassian's recommended option for interactive, user-driven scenarios. This is Atlassian MCP v2, which lists its most-used tools directly and the rest through its discover and execute tools; it is also the MCP server for Bitbucket Cloud.",
+  "installHint": "Prefer the API token option for non-interactive use. Create a scoped personal API token for Atlassian MCP 2, then enter the owning Atlassian account email and token separately; the client composes Authorization: Basic base64(email:token). Atlassian Rovo is hosted for Atlassian Cloud and does not connect to Jira, Confluence, or Bitbucket Data Center.",
   "iconBg": "#0052CC",
   "logoUrl": "https://cdn.simpleicons.org/atlassian/FFFFFF",
   "keywords": [
@@ -27,6 +27,35 @@
     "mcp"
   ],
   "connectionOptions": [
+    {
+      "id": "api-token",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v2/mcp"
+      },
+      "auth": {
+        "strategy": "basic",
+        "basic": {
+          "username": {
+            "key": "email",
+            "label": "Atlassian account email",
+            "type": "text",
+            "required": true,
+            "placeholder": "you@example.com",
+            "helperText": "Use the email address of the Atlassian account that owns the API token."
+          },
+          "password": {
+            "key": "token",
+            "label": "Atlassian API token",
+            "type": "password",
+            "required": true,
+            "placeholder": "Paste your Atlassian API token",
+            "helperText": "Create a scoped token for Atlassian MCP 2 on the [preconfigured token creation page](https://id.atlassian.com/manage-profile/security/api-tokens?autofillToken&expiryDays=max&appId=mcp-v2&selectedScopes=all), and review the [official API-token authentication guide](https://developer.atlassian.com/cloud/rovo-mcp/guides/configuring-authentication-via-api-token/)."
+          }
+        }
+      }
+    },
     {
       "id": "oauth",
       "provider": "mcp",
