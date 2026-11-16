@@ -78,6 +78,17 @@ def test_schema_requires_catalog_and_install_metadata() -> None:
         assert any(field in error.message for error in errors), errors
 
 
+def test_stdio_install_fields_support_opt_in_instance_and_secret_defaults() -> None:
+    entry = json.loads((CATALOG_DIR / "mongodb.json").read_text())
+    transport = entry["connectionOptions"][0]["transport"]
+
+    transport["serverNameEditable"] = True
+    transport["envFields"][0]["saveAsSecretByDefault"] = False
+    transport["envFields"][0]["canSaveAsSecret"] = False
+
+    assert not list(VALIDATOR.iter_errors(entry))
+
+
 @pytest.mark.parametrize(
     ("entry_id", "resource_type", "cardinality", "selection_mode"),
     [

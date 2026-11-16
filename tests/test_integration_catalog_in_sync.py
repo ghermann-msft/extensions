@@ -207,6 +207,31 @@ def test_catalog_models_require_connectability_and_install_metadata() -> None:
         )
 
 
+def test_stdio_models_support_opt_in_instance_and_secret_defaults() -> None:
+    entry = next(entry for entry in _catalog_entries() if entry["id"] == "mongodb")
+    default_model = openhands_extensions.IntegrationCatalogEntry.model_validate(entry)
+    default_transport = default_model.connectionOptions[0].transport
+
+    assert default_transport.serverNameEditable is None
+    assert default_transport.envFields[0].saveAsSecretByDefault is None
+    assert default_transport.envFields[0].canSaveAsSecret is None
+
+    entry["connectionOptions"][0]["transport"]["serverNameEditable"] = True
+    entry["connectionOptions"][0]["transport"]["envFields"][0][
+        "saveAsSecretByDefault"
+    ] = False
+    entry["connectionOptions"][0]["transport"]["envFields"][0][
+        "canSaveAsSecret"
+    ] = False
+
+    model = openhands_extensions.IntegrationCatalogEntry.model_validate(entry)
+    transport = model.connectionOptions[0].transport
+
+    assert transport.serverNameEditable is True
+    assert transport.envFields[0].saveAsSecretByDefault is False
+    assert transport.envFields[0].canSaveAsSecret is False
+
+
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
     entries = _python_entries()
     with_logo = [entry for entry in entries if entry.get("logoUrl")]

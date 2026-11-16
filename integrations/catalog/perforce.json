@@ -1,0 +1,66 @@
+{
+  "id": "perforce",
+  "name": "Perforce",
+  "description": "Inspect Perforce depots, changelists, shelves, workspaces, jobs, reviews, and streams.",
+  "categories": [
+    "Developer tools"
+  ],
+  "appUrl": "https://www.perforce.com/products/helix-core",
+  "docsUrl": "https://github.com/perforce/p4mcp-server",
+  "iconBg": "#5C2D91",
+  "keywords": [
+    "version control",
+    "helix core",
+    "p4",
+    "depot",
+    "changelists"
+  ],
+  "installHint": "Runs the official Perforce P4 MCP Server bundled in the Sandbox Server image in read-only mode. Add a separate named connection for each Perforce server. P4PASSWD accepts a password or login ticket and remains encrypted in this connection's MCP environment. P4CLIENT is intentionally omitted; set a workspace later only when client-specific operations are needed.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "perforce",
+        "serverNameEditable": true,
+        "command": "/usr/local/bin/p4-mcp-server",
+        "args": [
+          "--readonly"
+        ],
+        "envFields": [
+          {
+            "key": "P4PORT",
+            "label": "Perforce server",
+            "type": "text",
+            "placeholder": "ssl:perforce.example.com:1666",
+            "required": true,
+            "helperText": "P4PORT for this connection, including ssl: when the server requires TLS."
+          },
+          {
+            "key": "P4USER",
+            "label": "Perforce username",
+            "type": "text",
+            "placeholder": "your_username",
+            "required": true,
+            "helperText": "P4USER used to connect to this Perforce server."
+          },
+          {
+            "key": "P4PASSWD",
+            "label": "Perforce password or ticket",
+            "type": "password",
+            "placeholder": "Password or ticket from p4 login -p",
+            "required": true,
+            "helperText": "Use a password or, preferably, a ticket from `p4 login -p`. The value remains encrypted in this connection's MCP environment.",
+            "helperLink": "https://help.perforce.com/helix-core/server-apps/p4guide/current/Content/P4Guide/configuration.login.html",
+            "saveAsSecretByDefault": false,
+            "canSaveAsSecret": false
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

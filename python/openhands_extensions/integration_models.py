@@ -52,6 +52,8 @@ class MarketplaceField(CatalogModel):
     helperText: str | None = None
     helperLink: HttpsUrl | None = None
     required: bool
+    saveAsSecretByDefault: bool | None = None
+    canSaveAsSecret: bool | None = None
 
     @model_validator(mode="after")
     def password_fields_have_help(self) -> MarketplaceField:
@@ -79,6 +81,7 @@ class SseTransport(CatalogModel):
 class StdioTransport(CatalogModel):
     kind: Literal["stdio"]
     serverName: NonEmptyString
+    serverNameEditable: bool | None = None
     command: NonEmptyString
     args: list[str]
     envFields: list[MarketplaceField] | None = None
