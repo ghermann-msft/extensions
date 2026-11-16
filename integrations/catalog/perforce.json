@@ -15,7 +15,7 @@
     "depot",
     "changelists"
   ],
-  "installHint": "Runs the official Perforce P4 MCP Server bundled in the Sandbox Server image in read-only mode. Add a separate named connection for each Perforce server. P4PASSWD accepts a password or login ticket and remains encrypted in this connection's MCP environment. P4CLIENT is intentionally omitted; set a workspace later only when client-specific operations are needed.",
+  "installHint": "Runs the official Perforce P4 MCP Server bundled in the Sandbox Server image in read-only mode. Add a separate named connection for each Perforce server. Supply a login ticket from `p4 login -p` as process-local P4PASSWD; it remains encrypted in this connection's MCP environment and does not require a shared P4TICKETS file. P4CLIENT is intentionally omitted; set a workspace later only when client-specific operations are needed.",
   "connectionOptions": [
     {
       "id": "api",
@@ -47,11 +47,11 @@
           },
           {
             "key": "P4PASSWD",
-            "label": "Perforce password or ticket",
+            "label": "Perforce login ticket",
             "type": "password",
-            "placeholder": "Password or ticket from p4 login -p",
+            "placeholder": "Ticket from p4 login -p",
             "required": true,
-            "helperText": "Use a password or, preferably, a ticket from `p4 login -p`. The value remains encrypted in this connection's MCP environment.",
+            "helperText": "Generate a ticket with `p4 login -p`. It is supplied as process-local P4PASSWD and remains encrypted in this connection's MCP environment.",
             "helperLink": "https://help.perforce.com/helix-core/server-apps/p4guide/current/Content/P4Guide/configuration.login.html",
             "saveAsSecretByDefault": false,
             "canSaveAsSecret": false
