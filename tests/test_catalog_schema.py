@@ -48,6 +48,33 @@ def test_schema_file_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
 
 
+def test_basic_auth_requires_compound_credentials() -> None:
+    entry = json.loads((CATALOG_DIR / "atlassian-rovo.json").read_text())
+    api_token = entry["connectionOptions"][0]
+
+    assert api_token["auth"]["strategy"] == "basic"
+    assert not list(VALIDATOR.iter_errors(entry))
+
+    missing_basic = deepcopy(entry)
+    missing_basic["connectionOptions"][0]["auth"].pop("basic")
+    assert any(
+        "basic" in error.message
+        for error in VALIDATOR.iter_errors(missing_basic)
+    )
+
+    visible_password = deepcopy(entry)
+    visible_password["connectionOptions"][0]["auth"]["basic"]["password"][
+        "type"
+    ] = "text"
+    assert list(VALIDATOR.iter_errors(visible_password))
+
+    basic_on_oauth = deepcopy(entry)
+    basic_on_oauth["connectionOptions"][1]["auth"]["basic"] = deepcopy(
+        api_token["auth"]["basic"]
+    )
+    assert list(VALIDATOR.iter_errors(basic_on_oauth))
+
+
 def test_schema_requires_catalog_and_install_metadata() -> None:
     entry = json.loads((CATALOG_DIR / "slack.json").read_text())
 

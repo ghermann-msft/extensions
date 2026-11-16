@@ -105,6 +105,19 @@ class IntegrationOAuthConfig(CatalogModel):
     additionalTokenParams: dict[str, str] | None = None
 
 
+class IntegrationBasicAuthConfig(CatalogModel):
+    username: MarketplaceField
+    password: MarketplaceField
+
+    @model_validator(mode="after")
+    def fields_have_safe_basic_auth_roles(self) -> IntegrationBasicAuthConfig:
+        if self.username.type != "text" or not self.username.required:
+            raise ValueError("Basic-auth usernames must be required text fields.")
+        if self.password.type != "password" or not self.password.required:
+            raise ValueError("Basic-auth passwords must be required password fields.")
+        return self
+
+
 class IntegrationAuthConfig(CatalogModel):
     strategy: IntegrationAuthStrategy
     authModes: list[IntegrationAuthStrategy] | None = Field(default=None, min_length=1)
@@ -115,7 +128,16 @@ class IntegrationAuthConfig(CatalogModel):
     saveCredentialAsSecretByDefault: bool | None = None
     apiKeyHeaderName: NonEmptyString | None = None
     apiKeyOptional: bool | None = None
+    basic: IntegrationBasicAuthConfig | None = None
     oauth: IntegrationOAuthConfig | None = None
+
+    @model_validator(mode="after")
+    def basic_strategy_requires_compound_credentials(self) -> IntegrationAuthConfig:
+        if self.strategy == "basic" and not self.basic:
+            raise ValueError("Basic auth requires username and password fields.")
+        if self.strategy != "basic" and self.basic:
+            raise ValueError("Only Basic auth may define Basic credential fields.")
+        return self
 
 
 class IntegrationHttpConfig(CatalogModel):

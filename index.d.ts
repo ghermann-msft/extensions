@@ -2,6 +2,7 @@ export {
   INTEGRATION_CATALOG,
   type IntegrationAuthConfig,
   type IntegrationAuthStrategy,
+  type IntegrationBasicAuthConfig,
   type IntegrationCatalogEntry,
   type IntegrationConnectionOption,
   type IntegrationHttpConfig,

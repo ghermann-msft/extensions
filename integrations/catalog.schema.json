@@ -59,6 +59,27 @@
         }
       ]
     },
+    "basicAuthConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["username", "password"],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/marketplaceField",
+          "properties": {
+            "type": { "const": "text" },
+            "required": { "const": true }
+          }
+        },
+        "password": {
+          "$ref": "#/$defs/marketplaceField",
+          "properties": {
+            "type": { "const": "password" },
+            "required": { "const": true }
+          }
+        }
+      }
+    },
     "oauthConfig": {
       "type": "object",
       "additionalProperties": false,
@@ -175,8 +196,16 @@
         "saveCredentialAsSecretByDefault": { "type": "boolean" },
         "apiKeyHeaderName": { "type": "string", "minLength": 1 },
         "apiKeyOptional": { "type": "boolean" },
+        "basic": { "$ref": "#/$defs/basicAuthConfig" },
         "oauth": { "$ref": "#/$defs/oauthConfig" }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "strategy": { "const": "basic" } } },
+          "then": { "required": ["basic"] },
+          "else": { "not": { "required": ["basic"] } }
+        }
+      ]
     },
     "httpConfig": {
       "type": "object",

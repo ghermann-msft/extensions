@@ -18,6 +18,7 @@ from .integrations import (
 from .integration_models import (
     HttpConnectionOption,
     IntegrationAuthConfig,
+    IntegrationBasicAuthConfig,
     IntegrationCatalogEntry,
     IntegrationCatalogSnapshot,
     IntegrationConnectionOption,
@@ -38,6 +39,7 @@ __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
     "HttpConnectionOption",
     "IntegrationAuthConfig",
+    "IntegrationBasicAuthConfig",
     "IntegrationCatalogEntry",
     "IntegrationCatalogSnapshot",
     "IntegrationConnectionOption",
