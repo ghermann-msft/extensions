@@ -50,6 +50,12 @@ These fields are descriptive; they never broaden the scopes enforced by the
 provider credential. Consumers must not claim resource-level isolation when a
 provider token is only account- or tenant-scoped.
 
+For `auth.strategy: "basic"`, `auth.basic.username` and
+`auth.basic.password` describe two separate marketplace inputs. Consumers must
+compose `Authorization: Basic base64(username:password)` at request time,
+secret-store password fields, and avoid persisting or displaying the composed
+header.
+
 Consumers should use the read functions exported by the package:
 
 ```js

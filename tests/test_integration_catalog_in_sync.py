@@ -232,6 +232,36 @@ def test_stdio_models_support_opt_in_instance_and_secret_defaults() -> None:
     assert transport.envFields[0].canSaveAsSecret is False
 
 
+def test_python_models_enforce_compound_basic_auth() -> None:
+    entry = next(entry for entry in _catalog_entries() if entry["id"] == "atlassian-rovo")
+    model = openhands_extensions.IntegrationCatalogEntry.model_validate(entry)
+    api_token = model.connectionOptions[0]
+
+    assert api_token.auth.strategy == "basic"
+    assert api_token.auth.basic is not None
+    assert api_token.auth.basic.username.key == "email"
+    assert api_token.auth.basic.password.key == "token"
+
+    missing_basic = deepcopy(entry)
+    missing_basic["connectionOptions"][0]["auth"].pop("basic")
+    with pytest.raises(ValidationError, match="Basic auth requires"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_basic)
+
+    visible_password = deepcopy(entry)
+    visible_password["connectionOptions"][0]["auth"]["basic"]["password"][
+        "type"
+    ] = "text"
+    with pytest.raises(ValidationError, match="required password"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(visible_password)
+
+    basic_on_oauth = deepcopy(entry)
+    basic_on_oauth["connectionOptions"][1]["auth"]["basic"] = deepcopy(
+        entry["connectionOptions"][0]["auth"]["basic"]
+    )
+    with pytest.raises(ValidationError, match="Only Basic auth"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(basic_on_oauth)
+
+
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
     entries = _python_entries()
     with_logo = [entry for entry in entries if entry.get("logoUrl")]

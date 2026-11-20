@@ -92,6 +92,20 @@ export interface IntegrationOAuthConfig {
   additionalTokenParams?: Record<string, string>;
 }
 
+export interface IntegrationBasicAuthConfig {
+  /**
+   * The non-secret Basic-auth username input. Consumers compose this value
+   * with `password` as `base64(username:password)`.
+   */
+  username: MarketplaceField & { type: "text"; required: true };
+  /**
+   * The secret Basic-auth password or token input. Consumers must store
+   * `type: "password"` values as secrets and must not persist the composed
+   * Authorization header.
+   */
+  password: MarketplaceField & { type: "password"; required: true };
+}
+
 export interface IntegrationAuthConfig {
   strategy: IntegrationAuthStrategy;
   authModes?: IntegrationAuthStrategy[];
@@ -102,6 +116,8 @@ export interface IntegrationAuthConfig {
   saveCredentialAsSecretByDefault?: boolean;
   apiKeyHeaderName?: string;
   apiKeyOptional?: boolean;
+  /** Required when `strategy` is `basic`; omitted for every other strategy. */
+  basic?: IntegrationBasicAuthConfig;
   oauth?: IntegrationOAuthConfig;
 }
 
