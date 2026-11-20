@@ -47,7 +47,9 @@
         "placeholder": { "type": "string" },
         "helperText": { "type": "string" },
         "helperLink": { "type": "string", "pattern": "^https://" },
-        "required": { "type": "boolean" }
+        "required": { "type": "boolean" },
+        "saveAsSecretByDefault": { "type": "boolean" },
+        "canSaveAsSecret": { "type": "boolean" }
       },
       "allOf": [
         {
@@ -225,6 +227,7 @@
           "properties": {
             "kind": { "const": "stdio" },
             "serverName": { "type": "string", "minLength": 1 },
+            "serverNameEditable": { "type": "boolean" },
             "command": { "type": "string", "minLength": 1 },
             "args": {
               "type": "array",

@@ -23,6 +23,13 @@ declare both their `type` and whether they are `required`, rather than relying
 on client defaults. When connection metadata includes an `identityMapping`, it
 must also identify the external principal. These requirements keep catalogs
 actionable and prevent clients from guessing security- or UX-relevant defaults.
+For stdio connections, `serverNameEditable: true` lets an installer offer a
+user-selected MCP-safe instance name while retaining `serverName` as the
+default. An input field may set `saveAsSecretByDefault` to control its initial
+secret toggle; when omitted, clients retain their existing field-type default.
+Set `canSaveAsSecret: false` when a value must remain connection-scoped and the
+installer must not offer copying it into the global secret namespace. Omission
+preserves the existing behavior of allowing the toggle.
 
 Connection options may also carry an optional `connectionModel`. This metadata
 lets consumers distinguish the authenticated principal from the external

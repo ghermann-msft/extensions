@@ -8,6 +8,16 @@ export interface MarketplaceField {
   helperText?: string;
   helperLink?: string;
   required: boolean;
+  /**
+   * Initial state of the install form's save-as-secret toggle. Password fields
+   * retain the existing default of true when this property is omitted.
+   */
+  saveAsSecretByDefault?: boolean;
+  /**
+   * Whether the install form may offer saving this value as a global secret.
+   * Omission preserves the existing behavior of allowing the toggle.
+   */
+  canSaveAsSecret?: boolean;
 }
 
 export type IntegrationTransport =
@@ -48,6 +58,11 @@ export type IntegrationTransport =
   | {
       kind: "stdio";
       serverName: string;
+      /**
+       * When true, the install form lets the user replace `serverName` with a
+       * unique MCP-safe instance name before saving the connection.
+       */
+      serverNameEditable?: boolean;
       command: string;
       args: string[];
       envFields?: MarketplaceField[];

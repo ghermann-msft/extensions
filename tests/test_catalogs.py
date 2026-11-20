@@ -191,6 +191,38 @@ def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
     assert api_key["auth"]["saveCredentialAsSecretByDefault"] is True
 
 
+def test_perforce_catalog_uses_bundled_readonly_server():
+    perforce = next(
+        entry for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "perforce"
+    )
+    option = perforce["connectionOptions"][0]
+    transport = option["transport"]
+
+    assert option["provider"] == "mcp"
+    assert option["auth"]["strategy"] == "api_key"
+    assert transport["kind"] == "stdio"
+    assert transport["serverName"] == "perforce"
+    assert transport["serverNameEditable"] is True
+    assert transport["command"] == "p4-mcp-server"
+    assert transport["args"] == ["--readonly"]
+    assert [field["key"] for field in transport["envFields"]] == [
+        "P4PORT",
+        "P4USER",
+        "P4PASSWD",
+    ]
+    assert all(field["required"] for field in transport["envFields"])
+    password = next(
+        field for field in transport["envFields"] if field["key"] == "P4PASSWD"
+    )
+    assert password["type"] == "password"
+    assert password["saveAsSecretByDefault"] is False
+    assert password["canSaveAsSecret"] is False
+    assert "P4CLIENT" not in {
+        field["key"] for field in transport["envFields"]
+    }
+
+
 def test_node_package_exports_catalogs():
     script = """
       import { INTEGRATION_CATALOG, AUTOMATION_CATALOG } from './index.js';
